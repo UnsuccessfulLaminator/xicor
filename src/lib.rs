@@ -3,9 +3,66 @@ use num_traits::float::FloatCore;
 
 
 
-/// Calculate the xi-correlation of two floating-point sequences. This is
-/// a thin wrapper around `xicor` that transmutes slices of floats into
-/// slices of `OrderedFloat`, which implements the necessary `Ord`.
+/// Calculate the normalised xi-correlation of two floating-point sequences.
+///
+/// See [`xicor_norm`] for details of normalisation.
+///
+/// # Example
+///
+/// ```
+/// use xicor::xicorf_norm;
+///
+/// let x: Vec<f32> = (0..47).map(|i| i as f32).collect();
+/// let y: Vec<f32> = x.iter().map(|x| x*x).collect();
+/// let xi = xicorf_norm(&x, &y);
+///
+/// assert_eq!(xi, 1.);
+/// ```
+///
+/// Note that this is exactly the same data used in the example for [`xicorf`],
+/// but here the result is actually 1.
+pub fn xicorf_norm<F: FloatCore>(x: &[F], y: &[F]) -> f64 {
+    let n = x.len() as f64;
+    let lim = (n-2.)/(n+1.);
+
+    xicorf(x, y)/lim
+}
+
+/// Calculate the normalised xi-correlation of two sequences whose values are
+/// orderable (they implement [`Ord`]).
+///
+/// One particular quirk of Chatterjee's Xi is that its maximum value is only 1
+/// in the limit as the number of points goes to infinity. For a finite number
+/// of points `n`, its upper limit is `(n-2)/(n+1)`, _even with perfect
+/// correlation_. This can be substantially below 1 for small datasets.
+/// Therefore, this function is provided which normalises by that limit, such
+/// that it will always return 1 for perfectly correlated data.
+///
+/// # Example
+///
+/// ```
+/// use xicor::xicor_norm;
+///
+/// let x: Vec<u32> = (0..47).collect();
+/// let y: Vec<u32> = x.iter().map(|x| x*x).collect();
+/// let xi = xicor_norm(&x, &y);
+///
+/// assert_eq!(xi, 1.);
+/// ```
+///
+/// Note that this is exactly the same data used in the example for [`xicor`],
+/// but here the result is actually 1.
+pub fn xicor_norm<T: Ord + Copy>(x: &[T], y: &[T]) -> f64 {
+    let n = x.len() as f64;
+    let lim = (n-2.)/(n+1.);
+
+    xicor(x, y)/lim
+}
+
+/// Calculate the xi-correlation of two floating-point sequences.
+///
+/// This is a thin wrapper around [`xicor`] that transmutes slices of floats
+/// into slices of [`OrderedFloat`], which implements the necessary [`Ord`].
 ///
 /// # Example
 ///
@@ -27,7 +84,7 @@ pub fn xicorf<F: FloatCore>(x: &[F], y: &[F]) -> f64 {
 }
 
 /// Calculate the xi-correlation of two sequences whose values are orderable
-/// (they implement `Ord`).
+/// (they implement [`Ord`]).
 ///
 /// # Example
 ///
@@ -116,12 +173,15 @@ fn cumulative_gte<T: PartialEq<T> + Copy>(arr: &[T]) -> Vec<usize> {
 mod tests {
     use super::*;
 
+    // Fractional tolerance for testing approximate equality of floats
+    const RTOL: f64 = 1e-8;
+
     #[test]
     fn test_xicor() {
         let x = [1, 4, -9, -6, -5, -8, -1, 0, -4, -5];
         let y = [9, 8, 5, -10, 7, -6, -2, -8, 4, 3];
 
-        assert_eq!(xicor(&x, &y), 0.09090909090909094);
+        assert_req(xicor(&x, &y), 0.0909090909, RTOL);
     }
 
     #[test]
@@ -130,11 +190,42 @@ mod tests {
         let y: Vec<f32> = x.iter().map(|&x| (x*12.566).sin()).collect();
 
         // There is strong correlation forwards, because y is a function of x
-        assert_eq!(xicorf(&x, &y), 0.988033059619297);
+        assert_req(xicorf(&x, &y), 0.9880330596, RTOL);
 
         // There is only very weak correlation backwards, because x is not a
         // function of y - this is a one-to-many relationship
-        assert_eq!(xicorf(&y, &x), 0.06099306099306101);
+        assert_req(xicorf(&y, &x), 0.0609930609, RTOL);
+    }
+
+    #[test]
+    fn test_xicor_norm() {
+        let x = [1, 4, -9, -6, -5, -8, -1, 0, -4, -5];
+        let y = [9, 8, 5, -10, 7, -6, -2, -8, 4, 3];
+
+        assert_req(xicor_norm(&x, &y), 0.125, RTOL);
+    }
+
+    #[test]
+    fn test_xicorf_norm() {
+        let x: Vec<f32> = (0..1000).map(|i| i as f32/1000.).collect();
+        let y: Vec<f32> = x.iter().map(|&x| (x*12.566).sin()).collect();
+
+        assert_req(xicorf_norm(&x, &y), 0.9910030989, RTOL);
+    }
+
+    // Check whether 2 floating-point values are within the given fractional
+    // tolerance of eachother.
+    fn assert_req(left: f64, right: f64, rtol: f64) {
+        let mean_size = (left.abs()+right.abs())/2.;
+        let diff = (left-right).abs();
+        
+        if diff/mean_size > rtol {
+            panic!(
+                "assertion `left ~= right` failed\n\
+                left: {left}\n\
+                right: {right}"
+            );
+        }
     }
 
     #[test]
