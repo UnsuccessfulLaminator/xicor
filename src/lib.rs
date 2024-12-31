@@ -25,9 +25,8 @@
 //!
 //! ## Progress
 //!
-//! Only calculation of the xi coefficient itself has been implemented so far.
-//! The paper also gives a method for finding p-values of the distribution of
-//! xi (given certain requirements), and ideally this will also be implemented.
+//! - [x] Calculation of the xi coefficient itself
+//! - [ ] P-values for testing independence
 
 #[cfg(test)]
 mod tests;
