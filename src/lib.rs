@@ -3,7 +3,21 @@ use num_traits::float::FloatCore;
 
 
 
-/// Calculate the xi-correlation of two floating-point sequences.
+/// Calculate the xi-correlation of two floating-point sequences. This is
+/// a thin wrapper around `xicor` that transmutes slices of floats into
+/// slices of `OrderedFloat`, which implements the necessary `Ord`.
+///
+/// # Example
+///
+/// ```
+/// use xicor::xicorf;
+///
+/// let x: Vec<f32> = (0..47).map(|i| i as f32).collect();
+/// let y: Vec<f32> = x.iter().map(|x| x*x).collect();
+/// let xi = xicorf(&x, &y);
+///
+/// assert_eq!(xi, 0.9375);
+/// ```
 pub fn xicorf<F: FloatCore>(x: &[F], y: &[F]) -> f64 {
     // This is safe because OrderedFloat has transparent representation
     let x: &[OrderedFloat<F>] = unsafe { std::mem::transmute(x) };
@@ -14,6 +28,18 @@ pub fn xicorf<F: FloatCore>(x: &[F], y: &[F]) -> f64 {
 
 /// Calculate the xi-correlation of two sequences whose values are orderable
 /// (they implement `Ord`).
+///
+/// # Example
+///
+/// ```
+/// use xicor::xicor;
+///
+/// let x: Vec<u32> = (0..47).collect();
+/// let y: Vec<u32> = x.iter().map(|x| x*x).collect();
+/// let xi = xicor(&x, &y);
+///
+/// assert_eq!(xi, 0.9375);
+/// ```
 pub fn xicor<T: Ord + Copy>(x: &[T], y: &[T]) -> f64 {
     assert!(x.len() == y.len(), "x and y must have the same length");
 
