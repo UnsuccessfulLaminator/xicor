@@ -107,24 +107,24 @@ pub fn xicor<T: Ord + Copy>(x: &[T], y: &[T]) -> f64 {
     let y_ascending = permute(&y_ord, &idcs);
     let r_ascending = cumulative_lte(&y_ascending);
     let l_ascending = cumulative_gte(&y_ascending);
-    let mut rs = vec![0; x.len()];
-    let mut ls = vec![0; x.len()];
+    let mut rs = vec![0.; x.len()];
+    let mut ls = vec![0.; x.len()];
 
     for ((i, r), l) in idcs.into_iter().zip(r_ascending).zip(l_ascending) {
-        rs[i] = r;
-        ls[i] = l;
+        rs[i] = r as f64;
+        ls[i] = l as f64;
     }
 
     let rsum = rs.windows(2)
-        .map(|win| win[0].abs_diff(win[1]))
-        .sum::<usize>();
+        .map(|win| (win[0]-win[1]).abs())
+        .sum::<f64>();
 
-    let n = x.len();
+    let n = x.len() as f64;
     let lsum = ls.into_iter()
         .map(|l| l*(n-l))
-        .sum::<usize>();
+        .sum::<f64>();
 
-    1.-(n as f64)*(rsum as f64)/(2.*lsum as f64)
+    1.-n*rsum/(2.*lsum)
 }
 
 // Return the indices that would sort the given array. That is, if you map the
